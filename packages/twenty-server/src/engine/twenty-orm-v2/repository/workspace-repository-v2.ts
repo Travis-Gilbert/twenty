@@ -1290,6 +1290,7 @@ export class WorkspaceRepositoryV2 {
       selectedColumns: columnsToReturn,
       allFieldsSelected: false,
       updatedColumns,
+      authContext: this.options.authContext,
     });
   }
 
