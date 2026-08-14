@@ -19,16 +19,24 @@ const StyledContainer = styled.div`
   display: flex;
   flex: 1;
   flex-direction: column;
-  height: 100%;
+  min-height: 0;
   position: relative;
 `;
 
 type CampaignBodyFieldProps = {
   campaign: MessageCampaign;
+  // Lets the composer follow the canvas: its width is a per-campaign design
+  // setting, and the envelope block above lines up with it.
+  onEditorReady?: (editor: Editor | null) => void;
 };
 
-export const CampaignBodyField = ({ campaign }: CampaignBodyFieldProps) => {
-  const { body, setBody, flush } = useCampaignBodyState({ campaign });
+export const CampaignBodyField = ({
+  campaign,
+  onEditorReady,
+}: CampaignBodyFieldProps) => {
+  const { body, setBody, flush, draftResyncKey } = useCampaignBodyState({
+    campaign,
+  });
   const setActiveEmailEditor = useSetAtomState(activeEmailEditorState);
   const { uploadEmailImage } = useUploadEmailImage();
   const { variables } = useCampaignEmailEditorVariables();
@@ -39,13 +47,15 @@ export const CampaignBodyField = ({ campaign }: CampaignBodyFieldProps) => {
     (editor: Editor | null) => {
       setActiveEmailEditor(editor);
       setBodyEditor(editor);
+      onEditorReady?.(editor);
     },
-    [setActiveEmailEditor],
+    [setActiveEmailEditor, onEditorReady],
   );
 
   return (
     <StyledContainer onBlur={() => flush()}>
       <FormAdvancedTextFieldInput
+        key={draftResyncKey}
         defaultValue={body}
         onChange={setBody}
         placeholder={t`Type something or press "/" to see commands`}
