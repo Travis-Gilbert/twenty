@@ -68,20 +68,80 @@ const mutationObserverTest: Story['play'] = async ({ canvasElement }) => {
   expect(errorHandler).not.toHaveBeenCalled();
 };
 
-const createStory = (name: string, runtime?: 'preact'): Story => ({
+const EXPECTED_CLASS_LIST_REPORT = {
+  isMemoized: true,
+  containsMapboxClass: true,
+  containsRemovedClass: false,
+  length: 4,
+  tokens: ['initial-class', 'mapboxgl-map', 'replaced', 'toggled-on'],
+  value: 'initial-class mapboxgl-map replaced toggled-on',
+};
+
+const classListTest: Story['play'] = async ({ canvasElement }) => {
+  const canvas = within(canvasElement);
+
+  const runButton = await canvas.findByTestId(
+    'class-list-run',
+    {},
+    { timeout: MOUNT_TIMEOUT },
+  );
+
+  await userEvent.click(runButton);
+
+  await waitFor(
+    () => {
+      expect(
+        JSON.parse(
+          canvas
+            .getByTestId('class-list-status')
+            .getAttribute('data-class-list-report') ?? 'null',
+        ),
+      ).toEqual(EXPECTED_CLASS_LIST_REPORT);
+    },
+    { timeout: MOUNT_TIMEOUT },
+  );
+
+  await waitFor(
+    () => {
+      expect(canvas.getByTestId('class-list-container').className).toBe(
+        'initial-class mapboxgl-map replaced toggled-on',
+      );
+    },
+    { timeout: MOUNT_TIMEOUT },
+  );
+
+  expect(errorHandler).not.toHaveBeenCalled();
+};
+
+const createStory = (
+  name: string,
+  play: Story['play'],
+  runtime?: 'preact',
+): Story => ({
   args: {
     componentUrl: getBuiltStoryComponentPathForRender(
       `${name}.front-component`,
       runtime,
     ),
   },
-  play: mutationObserverTest,
+  play,
 });
 
 export const MutationObserverReact: Story = createStory(
   'mutation-observer-example',
+  mutationObserverTest,
 );
 export const MutationObserverPreact: Story = createStory(
   'mutation-observer-example',
+  mutationObserverTest,
+  'preact',
+);
+export const ClassListReact: Story = createStory(
+  'class-list-example',
+  classListTest,
+);
+export const ClassListPreact: Story = createStory(
+  'class-list-example',
+  classListTest,
   'preact',
 );
