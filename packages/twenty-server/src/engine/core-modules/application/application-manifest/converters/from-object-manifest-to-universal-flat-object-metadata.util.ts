@@ -29,7 +29,7 @@ export const fromObjectManifestToUniversalFlatObjectMetadata = ({
     isActive: true,
     isSystem: false,
     isUIEditable: objectManifest.isUIEditable ?? true,
-    writability: MetadataWritability.OPEN,
+    writability: objectManifest.writability ?? MetadataWritability.OPEN,
     isUICreatable: objectManifest.isUICreatable ?? true,
     isAuditLogged: true,
     isSearchable: objectManifest.isSearchable ?? true,
