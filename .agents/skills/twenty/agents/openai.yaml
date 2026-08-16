@@ -1,0 +1,6 @@
+interface:
+  display_name: "Twenty"
+  short_description: "Repo-specific patterns and workflows for twenty"
+  default_prompt: "Use the twenty repo skill to follow existing architecture, testing, and workflow conventions."
+policy:
+  allow_implicit_invocation: true
