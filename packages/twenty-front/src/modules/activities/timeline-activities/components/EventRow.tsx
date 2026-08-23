@@ -4,19 +4,21 @@ import { useContext } from 'react';
 
 import { TimelineActivityContext } from '@/activities/timeline-activities/contexts/TimelineActivityContext';
 
-import { useLinkedObjectObjectMetadataItem } from '@/activities/timeline-activities/hooks/useLinkedObjectObjectMetadataItem';
 import { EventIconDynamicComponent } from '@/activities/timeline-activities/rows/components/EventIconDynamicComponent';
 import { EventRowDynamicComponent } from '@/activities/timeline-activities/rows/components/EventRowDynamicComponent';
 import { type TimelineActivity } from '@/activities/timeline-activities/types/TimelineActivity';
+import { useTimelineActivityTypes } from '@/activities/timeline-activities/hooks/useTimelineActivityTypes';
+import { getTimelineActivityAction } from '@/activities/timeline-activities/utils/getTimelineActivityAction';
+import { getTimelineActivityType } from '@/activities/timeline-activities/utils/getTimelineActivityType';
+import { getTimelineActivityLinkedObjectMetadataItem } from '@/activities/timeline-activities/utils/getTimelineActivityLinkedObjectMetadataItem';
 import { getTimelineActivityAuthorFullName } from '@/activities/timeline-activities/utils/getTimelineActivityAuthorFullName';
 import { currentWorkspaceMemberState } from '@/auth/states/currentWorkspaceMemberState';
 import { type EnrichedObjectMetadataItem } from '@/object-metadata/types/EnrichedObjectMetadataItem';
 import { getObjectRecordIdentifier } from '@/object-metadata/utils/getObjectRecordIdentifier';
 import { recordStoreFamilyState } from '@/object-record/record-store/states/recordStoreFamilyState';
 import { useAtomFamilyStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomFamilyStateValue';
+import { useObjectMetadataItems } from '@/object-metadata/hooks/useObjectMetadataItems';
 import { themeCssVariables } from 'twenty-ui/theme-constants';
-import { dateLocaleState } from '~/localization/states/dateLocaleState';
-import { beautifyPastDateRelativeToNow } from '~/utils/date-utils';
 import { isUndefinedOrNull } from '~/utils/isUndefinedOrNull';
 import { allowRequestsToTwentyIconsState } from '@/client-config/states/allowRequestsToTwentyIcons';
 
@@ -95,19 +97,30 @@ export const EventRow = ({
     allowRequestsToTwentyIconsState,
   );
 
-  const { localeCatalog } = useAtomStateValue(dateLocaleState);
-
   const { recordId } = useContext(TimelineActivityContext);
 
   const recordStore = useAtomFamilyStateValue(recordStoreFamilyState, recordId);
 
-  const beautifiedCreatedAt = beautifyPastDateRelativeToNow(
-    event.createdAt,
-    localeCatalog,
+  const { timelineActivityTypeById } = useTimelineActivityTypes();
+
+  const { objectMetadataItems } = useObjectMetadataItems();
+
+  const timelineActivityType = getTimelineActivityType(
+    event,
+    timelineActivityTypeById,
   );
-  const linkedObjectMetadataItem = useLinkedObjectObjectMetadataItem(
-    event.linkedObjectMetadataId,
+
+  const timelineActivityAction = getTimelineActivityAction(
+    event,
+    timelineActivityTypeById,
   );
+
+  const linkedObjectMetadataItem =
+    getTimelineActivityLinkedObjectMetadataItem({
+      timelineActivity: event,
+      timelineActivityTypeById,
+      objectMetadataItems,
+    }) ?? null;
 
   if (isUndefinedOrNull(currentWorkspaceMember)) {
     return null;
@@ -141,7 +154,7 @@ export const EventRow = ({
         <StyledLeftContainer>
           <StyledIconContainer>
             <EventIconDynamicComponent
-              event={event}
+              eventIcon={timelineActivityType?.icon ?? null}
               linkedObjectMetadataItem={linkedObjectMetadataItem}
             />
           </StyledIconContainer>
@@ -157,9 +170,11 @@ export const EventRow = ({
               authorFullName={authorFullName}
               labelIdentifierValue={labelIdentifier.name}
               event={event}
+              eventAction={timelineActivityAction}
+              eventRenderer={timelineActivityType?.renderer ?? null}
               mainObjectMetadataItem={mainObjectMetadataItem}
               linkedObjectMetadataItem={linkedObjectMetadataItem}
-              createdAt={beautifiedCreatedAt}
+              createdAt={event.createdAt}
             />
           </StyledSummary>
         </StyledItemContainer>
