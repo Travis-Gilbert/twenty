@@ -106,6 +106,11 @@ export type FieldConfiguration = {
   nestedRelationFieldMetadataId?: string | null;
 };
 
+export type FormFieldConfiguration = {
+  configurationType: 'FORM_FIELD';
+  fieldMetadataId: string;
+};
+
 export type FieldsConfiguration = {
   configurationType: 'FIELDS';
   viewId?: SerializedRelation | null;
@@ -133,6 +138,7 @@ export type IframeConfiguration = {
 export type FrontComponentConfiguration = {
   configurationType: 'FRONT_COMPONENT';
   frontComponentId: SerializedRelation;
+  headerCommandMenuItemUniversalIdentifiers?: string[];
 };
 
 export type TimelineConfiguration = {
@@ -200,6 +206,7 @@ export type PageLayoutWidgetConfiguration =
   | RecordTableConfiguration
   | FieldConfiguration
   | FieldsConfiguration
+  | FormFieldConfiguration
   | FieldRichTextConfiguration
   | StandaloneRichTextConfiguration
   | IframeConfiguration

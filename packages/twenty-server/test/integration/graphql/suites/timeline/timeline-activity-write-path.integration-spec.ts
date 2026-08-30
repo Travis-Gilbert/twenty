@@ -8,9 +8,7 @@ import { deleteOneOperationFactory } from 'test/integration/graphql/utils/delete
 import { gql } from 'graphql-tag';
 import { STANDARD_OBJECTS } from 'twenty-shared/metadata';
 import { makeMetadataAPIRequest } from 'test/integration/metadata/suites/utils/make-metadata-api-request.util';
-import { updateFeatureFlag } from 'test/integration/metadata/suites/utils/update-feature-flag.util';
 import { waitForAllJobsToFinish } from 'test/integration/utils/wait-for-all-jobs-to-finish.util';
-import { FeatureFlagKey } from 'twenty-shared/types';
 import {
   type TimelineActivityAction,
   type TimelineActivityTypeSnapshot,
@@ -84,27 +82,6 @@ const updateRecord = async ({
   );
 
   expect(response.body.errors).toBeUndefined();
-};
-
-const withOrmV2ReadPathSetting = async (
-  enabled: boolean,
-  callback: () => Promise<void>,
-) => {
-  await updateFeatureFlag({
-    featureFlag: FeatureFlagKey.IS_ORM_V2_READ_PATH_ENABLED,
-    value: enabled,
-    expectToFail: false,
-  });
-
-  try {
-    await callback();
-  } finally {
-    await updateFeatureFlag({
-      featureFlag: FeatureFlagKey.IS_ORM_V2_READ_PATH_ENABLED,
-      value: false,
-      expectToFail: false,
-    });
-  }
 };
 
 const findTimelineActivities = async (
@@ -189,7 +166,6 @@ const ATTACHMENT_UNIVERSAL_IDENTIFIER =
 
 const COMPANY_ID = '20202020-7171-4000-8000-000000000001';
 const POSITION_COMPANY_ID = '20202020-7171-4000-8000-000000000002';
-const LEGACY_COMPOSITE_COMPANY_ID = '20202020-7171-4000-8000-000000000003';
 const NOTE_COMPANY_ID = '20202020-7171-4000-8000-000000000004';
 const NOTE_ID = '20202020-7171-4000-8000-000000000005';
 const NOTE_TARGET_ID = '20202020-7171-4000-8000-000000000006';
@@ -201,6 +177,9 @@ const ROUTED_MESSAGE_PARTICIPANT_ID = '20202020-7171-4000-8000-000000000013';
 const ROUTED_CALENDAR_EVENT_ID = '20202020-7171-4000-8000-000000000014';
 const ROUTED_CALENDAR_EVENT_PARTICIPANT_ID =
   '20202020-7171-4000-8000-000000000015';
+const ROUTED_MESSAGE_RECEIVED_AT = '2024-03-15T09:30:00.000Z';
+const ROUTED_CALENDAR_EVENT_STARTS_AT = '2024-04-02T14:00:00.000Z';
+const ROUTED_CALENDAR_EVENT_RESCHEDULED_STARTS_AT = '2024-04-09T16:00:00.000Z';
 const ATTACHMENT_ID = '20202020-7171-4000-8000-000000000016';
 const ORM_V2_COMPOSITE_COMPANY_ID = '20202020-7171-4000-8000-000000000017';
 const BATCH_COMPANY_IDS = [
@@ -237,10 +216,6 @@ const CREATED_RECORD_IDS: { objectMetadataSingularName: string; id: string }[] =
       id,
     })),
     { objectMetadataSingularName: 'company', id: NOTE_COMPANY_ID },
-    {
-      objectMetadataSingularName: 'company',
-      id: LEGACY_COMPOSITE_COMPANY_ID,
-    },
     {
       objectMetadataSingularName: 'company',
       id: ORM_V2_COMPOSITE_COMPANY_ID,
@@ -336,76 +311,62 @@ describe('timeline activity write path (integration)', () => {
       });
     });
 
-    it.each([
-      {
-        companyId: LEGACY_COMPOSITE_COMPANY_ID,
-        isOrmV2ReadPathEnabled: false,
-        ormName: 'legacy ORM',
-      },
-      {
-        companyId: ORM_V2_COMPOSITE_COMPANY_ID,
-        isOrmV2ReadPathEnabled: true,
-        ormName: 'ORM v2',
-      },
-    ])(
-      'should write an updated entry for a $ormName composite field change',
-      async ({ companyId, isOrmV2ReadPathEnabled }) => {
-        await withOrmV2ReadPathSetting(isOrmV2ReadPathEnabled, async () => {
-          await createRecord({
-            objectMetadataSingularName: 'company',
-            data: {
-              id: companyId,
-              name: 'Composite Field Timeline',
-            },
-          });
+    it('should write an updated entry for a composite field change', async () => {
+      const companyId = ORM_V2_COMPOSITE_COMPANY_ID;
 
-          const updateStartedAt = Date.now();
+      await createRecord({
+        objectMetadataSingularName: 'company',
+        data: {
+          id: companyId,
+          name: 'Composite Field Timeline',
+        },
+      });
 
-          await updateRecord({
-            objectMetadataSingularName: 'company',
-            recordId: companyId,
-            data: {
-              address: {
-                addressStreet1: '234 Composite Street',
-                addressStreet2: '',
-                addressCity: 'Paris',
-                addressState: '',
-                addressCountry: '',
-                addressPostcode: '',
-                addressLat: null,
-                addressLng: null,
-              },
-            },
-          });
+      const updateStartedAt = Date.now();
 
-          const timelineActivities = await findTimelineActivities({
-            targetCompanyId: { eq: companyId },
-            timelineActivityTypeId: {
-              eq: timelineActivityTypeIdForOrThrow('updated'),
-            },
-          });
+      await updateRecord({
+        objectMetadataSingularName: 'company',
+        recordId: companyId,
+        data: {
+          address: {
+            addressStreet1: '234 Composite Street',
+            addressStreet2: '',
+            addressCity: 'Paris',
+            addressState: '',
+            addressCountry: '',
+            addressPostcode: '',
+            addressLat: null,
+            addressLng: null,
+          },
+        },
+      });
 
-          expect(timelineActivities).toHaveLength(1);
-          expect(
-            new Date(timelineActivities[0].happensAt).getTime(),
-          ).toBeGreaterThanOrEqual(updateStartedAt);
-          expect(timelineActivities[0].properties).toMatchObject({
-            diff: {
-              address: {
-                before: {
-                  addressStreet1: '',
-                  addressCity: '',
-                },
-                after: {
-                  addressStreet1: '234 Composite Street',
-                  addressCity: 'Paris',
-                },
-              },
+      const timelineActivities = await findTimelineActivities({
+        targetCompanyId: { eq: companyId },
+        timelineActivityTypeId: {
+          eq: timelineActivityTypeIdForOrThrow('updated'),
+        },
+      });
+
+      expect(timelineActivities).toHaveLength(1);
+      expect(
+        new Date(timelineActivities[0].happensAt).getTime(),
+      ).toBeGreaterThanOrEqual(updateStartedAt);
+      expect(timelineActivities[0].properties).toMatchObject({
+        diff: {
+          address: {
+            before: {
+              addressStreet1: '',
+              addressCity: '',
             },
-          });
-        });
-      },
-    );
+            after: {
+              addressStreet1: '234 Composite Street',
+              addressCity: 'Paris',
+            },
+          },
+        },
+      });
+    });
 
     it('should merge every record of a multi record batch', async () => {
       for (const [index, id] of BATCH_COMPANY_IDS.entries()) {
@@ -646,7 +607,7 @@ describe('timeline activity write path (integration)', () => {
           messageThreadId: ROUTED_MESSAGE_THREAD_ID,
           subject: 'Generic message routing',
           text: 'No specialized listener required',
-          receivedAt: new Date().toISOString(),
+          receivedAt: ROUTED_MESSAGE_RECEIVED_AT,
         },
       });
       await createRecord({
@@ -680,6 +641,9 @@ describe('timeline activity write path (integration)', () => {
         linkedRecordId: ROUTED_MESSAGE_ID,
         linkedRecordCachedName: 'Generic message routing',
       });
+      expect(new Date(messageActivities[0].happensAt).toISOString()).toBe(
+        ROUTED_MESSAGE_RECEIVED_AT,
+      );
 
       await updateRecord({
         objectMetadataSingularName: 'messageParticipant',
@@ -705,8 +669,8 @@ describe('timeline activity write path (integration)', () => {
           id: ROUTED_CALENDAR_EVENT_ID,
           title: 'Generic calendar routing',
           isFullDay: false,
-          startsAt: new Date().toISOString(),
-          endsAt: new Date().toISOString(),
+          startsAt: ROUTED_CALENDAR_EVENT_STARTS_AT,
+          endsAt: ROUTED_CALENDAR_EVENT_STARTS_AT,
         },
       });
       await createRecord({
@@ -741,6 +705,74 @@ describe('timeline activity write path (integration)', () => {
         linkedRecordId: ROUTED_CALENDAR_EVENT_ID,
         linkedRecordCachedName: 'Generic calendar routing',
       });
+      expect(new Date(calendarActivities[0].happensAt).toISOString()).toBe(
+        ROUTED_CALENDAR_EVENT_STARTS_AT,
+      );
+    });
+
+    it('should move linked activities when a calendar event is rescheduled', async () => {
+      await updateRecord({
+        objectMetadataSingularName: 'calendarEvent',
+        recordId: ROUTED_CALENDAR_EVENT_ID,
+        data: { title: 'Generic calendar routing renamed' },
+      });
+
+      const activitiesAfterRename = await findTimelineActivities({
+        targetPersonId: { eq: ROUTED_PERSON_ID },
+        timelineActivityTypeId: {
+          eq: timelineActivityTypeIdForOrThrow(
+            'linked',
+            CALENDAR_EVENT_UNIVERSAL_IDENTIFIER,
+          ),
+        },
+      });
+
+      expect(activitiesAfterRename).toHaveLength(1);
+      expect(new Date(activitiesAfterRename[0].happensAt).toISOString()).toBe(
+        ROUTED_CALENDAR_EVENT_STARTS_AT,
+      );
+
+      await updateRecord({
+        objectMetadataSingularName: 'calendarEvent',
+        recordId: ROUTED_CALENDAR_EVENT_ID,
+        data: { startsAt: ROUTED_CALENDAR_EVENT_RESCHEDULED_STARTS_AT },
+      });
+
+      const activitiesAfterReschedule = await findTimelineActivities({
+        targetPersonId: { eq: ROUTED_PERSON_ID },
+        timelineActivityTypeId: {
+          eq: timelineActivityTypeIdForOrThrow(
+            'linked',
+            CALENDAR_EVENT_UNIVERSAL_IDENTIFIER,
+          ),
+        },
+      });
+
+      expect(activitiesAfterReschedule).toHaveLength(1);
+      expect(
+        new Date(activitiesAfterReschedule[0].happensAt).toISOString(),
+      ).toBe(ROUTED_CALENDAR_EVENT_RESCHEDULED_STARTS_AT);
+
+      await updateRecord({
+        objectMetadataSingularName: 'calendarEvent',
+        recordId: ROUTED_CALENDAR_EVENT_ID,
+        data: { startsAt: null },
+      });
+
+      const activitiesAfterClearing = await findTimelineActivities({
+        targetPersonId: { eq: ROUTED_PERSON_ID },
+        timelineActivityTypeId: {
+          eq: timelineActivityTypeIdForOrThrow(
+            'linked',
+            CALENDAR_EVENT_UNIVERSAL_IDENTIFIER,
+          ),
+        },
+      });
+
+      expect(activitiesAfterClearing).toHaveLength(1);
+      expect(new Date(activitiesAfterClearing[0].happensAt).toISOString()).toBe(
+        ROUTED_CALENDAR_EVENT_RESCHEDULED_STARTS_AT,
+      );
     });
   });
 
