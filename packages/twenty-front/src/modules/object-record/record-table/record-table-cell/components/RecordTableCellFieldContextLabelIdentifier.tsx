@@ -1,4 +1,3 @@
-import { useGetIsMetadataItemFromStandardApplication } from '@/object-metadata/hooks/useGetIsMetadataItemFromStandardApplication';
 import { getObjectPermissionsForObject } from '@/object-metadata/utils/getObjectPermissionsForObject';
 import { isRecordFieldReadOnly } from '@/object-record/read-only/utils/isRecordFieldReadOnly';
 import { FieldContext } from '@/object-record/record-field/ui/contexts/FieldContext';
@@ -10,6 +9,7 @@ import { RecordTableUpdateContext } from '@/object-record/record-table/contexts/
 import { isRecordTableCellsNonEditableComponentState } from '@/object-record/record-table/states/isRecordTableCellsNonEditableComponentState';
 import { useAtomComponentStateValue } from '@/ui/utilities/state/jotai/hooks/useAtomComponentStateValue';
 import { useContext, type ReactNode } from 'react';
+import { isDefined } from 'twenty-shared/utils';
 
 type RecordTableCellFieldContextLabelIdentifierProps = {
   children: ReactNode;
@@ -20,6 +20,7 @@ export const RecordTableCellFieldContextLabelIdentifier = ({
 }: RecordTableCellFieldContextLabelIdentifierProps) => {
   const {
     objectPermissionsByObjectMetadataId,
+    fieldMetadataItemByFieldMetadataItemId,
     fieldDefinitionByFieldMetadataItemId,
   } = useRecordIndexContextOrThrow();
   const { recordId, isRecordReadOnly, rowIndex } =
@@ -41,11 +42,15 @@ export const RecordTableCellFieldContextLabelIdentifier = ({
   const hasObjectReadPermissions = objectPermissions.canReadObjectRecords;
 
   const updateRecord = useContext(RecordTableUpdateContext);
-  const getIsMetadataItemFromStandardApplication =
-    useGetIsMetadataItemFromStandardApplication();
 
   const fieldDefinition =
     fieldDefinitionByFieldMetadataItemId[recordField.fieldMetadataItemId];
+  const fieldMetadataItem =
+    fieldMetadataItemByFieldMetadataItemId[recordField.fieldMetadataItemId];
+
+  if (!isDefined(fieldMetadataItem)) {
+    return null;
+  }
 
   const handleChipClick = () => {
     onRecordIdentifierClick?.(rowIndex, recordId);
@@ -63,16 +68,8 @@ export const RecordTableCellFieldContextLabelIdentifier = ({
           isRecordTableCellsNonEditable ||
           isRecordFieldReadOnly({
             isRecordReadOnly: isRecordReadOnly ?? false,
-            isSystemObject: objectMetadataItem.isSystem,
-            isFieldFromStandardApplication:
-              getIsMetadataItemFromStandardApplication({
-                applicationId: fieldDefinition.metadata.applicationId,
-              }),
             objectPermissions,
-            fieldMetadataItem: {
-              id: recordField.fieldMetadataItemId,
-              isUIEditable: fieldDefinition.metadata.isUIEditable ?? true,
-            },
+            fieldMetadataItem,
             fieldDefinition,
             objectPermissionsByObjectMetadataId,
           }),
